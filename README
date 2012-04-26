@@ -1,0 +1,33 @@
+Go implementation of scrypt key derivation function.
+(http://www.tarsnap.com/scrypt.html)
+
+PACKAGE
+    import "scrypt"
+
+    Package scrypt implements the scrypt key derivation function as defined
+    in Colin Percival's paper "Stronger Key Derivation via Sequential
+    Memory-Hard Functions".
+
+FUNCTIONS
+
+func Key(password, salt []byte, N, r, p, keyLen int) ([]byte, error)
+
+    Key derives a key from the password, salt and cost parameters, returning
+    a byte slice of length keyLen that can be used as cryptographic key.
+
+    N is a CPU/memory cost parameter, must be a power of two greater than 1.
+    r and p must satisfy r * p < 2³⁰. If the parameters do not satisfy the
+    limits, the function returns a nil byte slice and an error.
+
+    For example, you can get a derived key for e.g. AES-256 (which needs a
+    32-byte key) by doing:
+
+        dk := scrypt.Key([]byte("some password"), salt, 16384, 8, 1, 32)
+
+    The recommended parameters as of 2009 are N=16384, r=8, p=1. They should
+    be increased as memory latency and CPU parallelism increases. Remember
+    to get a good random salt.
+
+KEYWORDS
+   
+    go, golang, scrypt, kdf
