@@ -1,8 +1,12 @@
 Go implementation of scrypt key derivation function.
 (http://www.tarsnap.com/scrypt.html)
 
+INSTALLATION
+
+    $ go get github.com/dchest/scrypt
+
 PACKAGE
-    import "scrypt"
+    import "github.com/dchest/scrypt"
 
     Package scrypt implements the scrypt key derivation function as defined
     in Colin Percival's paper "Stronger Key Derivation via Sequential
