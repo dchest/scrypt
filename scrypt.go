@@ -173,7 +173,7 @@ func smix(b []byte, r, N int, v, xy []byte) {
 // r=8, p=1. They should be increased as memory latency and CPU parallelism
 // increases. Remember to get a good random salt.
 func Key(password, salt []byte, N, r, p, keyLen int) ([]byte, error) {
-	if N <= 0 || N&(N-1) != 0 {
+	if N <= 1 || N&(N-1) != 0 {
 		return nil, errors.New("scrypt: N must be > 1 and a power of 2")
 	}
 	if uint64(r)*uint64(p) >= 1<<30 || r > maxInt/128/p || r > maxInt/256 || N > maxInt/128/r {
