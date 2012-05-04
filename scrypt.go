@@ -10,10 +10,11 @@
 package scrypt
 
 import (
-	"code.google.com/p/go.crypto/pbkdf2"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+
+	"code.google.com/p/go.crypto/pbkdf2"
 )
 
 const maxInt = 1<<31 - 1
