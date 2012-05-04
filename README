@@ -28,9 +28,9 @@ func Key(password, salt []byte, N, r, p, keyLen int) ([]byte, error)
 
         dk := scrypt.Key([]byte("some password"), salt, 16384, 8, 1, 32)
 
-    The recommended parameters as of 2009 are N=16384, r=8, p=1. They should
-    be increased as memory latency and CPU parallelism increases. Remember
-    to get a good random salt.
+    The recommended parameters for interactive logins as of 2009 are N=16384,
+    r=8, p=1. They should be increased as memory latency and CPU parallelism
+    increases. Remember to get a good random salt.
 
 KEYWORDS
    
