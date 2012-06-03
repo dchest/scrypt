@@ -31,7 +31,7 @@ func blockXOR(dst, src []byte, n int) {
 	}
 }
 
-// salsa applies Salsa20/8 to the given 64-byte slice.
+// salsa applies Salsa20/8 to the given array.
 func salsa(b *[64]byte) {
 	w0 := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
 	w1 := uint32(b[4]) | uint32(b[5])<<8 | uint32(b[6])<<16 | uint32(b[7])<<24
