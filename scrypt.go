@@ -24,6 +24,16 @@ func blockCopy(dst, src []byte, n int) {
 	copy(dst, src[:n])
 }
 
+// blockCopyFromArr copies 64 bytes from src array into dst slice.
+func blockCopyFromArr(dst []byte, src *[64]byte) {
+	copy(dst, src[:])
+}
+
+// blockCopyToArr copies 64 bytes from src slice into dst array.
+func blockCopyToArr(dst *[64]byte, src []byte) {
+	copy(dst[:], src)
+}
+
 // blockXOR XORs bytes from dst with n bytes from src.
 func blockXOR(dst, src []byte, n int) {
 	for i, v := range src[:n] {
@@ -31,8 +41,15 @@ func blockXOR(dst, src []byte, n int) {
 	}
 }
 
+// blockXORToArr XORs 64 bytes from src slice into dst array.
+func blockXORToArr(dst *[64]byte, src []byte) {
+	for i, v := range src[:64] {
+		dst[i] ^= v
+	}
+}
+
 // salsa applies Salsa20/8 to the given 64-byte slice.
-func salsa(b []byte) {
+func salsa(b *[64]byte) {
 	w0 := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
 	w1 := uint32(b[4]) | uint32(b[5])<<8 | uint32(b[6])<<16 | uint32(b[7])<<24
 	w2 := uint32(b[8]) | uint32(b[9])<<8 | uint32(b[10])<<16 | uint32(b[11])<<24
@@ -162,15 +179,15 @@ func salsa(b []byte) {
 }
 
 func blockMix(b, y []byte, r int) {
-	x := make([]byte, 64)
+	var x [64]byte
 
-	blockCopy(x, b[(2*r-1)*64:], 64)
+	blockCopyToArr(&x, b[(2*r-1)*64:])
 
 	for i := 0; i < 2*r; i++ {
-		blockXOR(x, b[i*64:], 64)
-		salsa(x)
+		blockXORToArr(&x, b[i*64:])
+		salsa(&x)
 
-		blockCopy(y[i*64:], x, 64)
+		blockCopyFromArr(y[i*64:], &x)
 	}
 
 	for i := 0; i < r; i++ {
