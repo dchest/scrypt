@@ -64,7 +64,7 @@ var good = []testVector{
 			0x4c, 0x50, 0xeb, 0xd6, 0x30, 0xaf, 0x52,
 		},
 	},
-	// Test vectors from IETF Draft.
+	// Test vectors from IETF Internet-Draft.
 	// http://datatracker.ietf.org/doc/draft-josefsson-scrypt-kdf/?include_text=1
 	{
 		"",
