@@ -1,3 +1,16 @@
+!!! NOTE !!!
+
+Official go.crypto repository now includes scrypt implementation.
+(http://code.google.com/p/go/source/detail?r=ad8a96e038bb&repo=crypto)
+Please use it instead of this one, as it will be supported there.
+
+Link: http://code.google.com/p/go/source/browse?repo=crypto
+
+It is compatible with this implementation, so to switch to it,
+just change the import path to "code.google.com/p/go.crypto/scrypt".
+
+!!!
+
 Go implementation of scrypt key derivation function.
 (http://www.tarsnap.com/scrypt.html)
 
