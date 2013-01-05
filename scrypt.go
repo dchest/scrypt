@@ -1,54 +1,52 @@
-// Copyright 2012 Dmitry Chestnykh   (Go implementation)
-// Copyright 2009 Colin Percival     (original C implementation)
-// All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 // Package scrypt implements the scrypt key derivation function as defined in
 // Colin Percival's paper "Stronger Key Derivation via Sequential Memory-Hard
-// Functions".
+// Functions" (http://www.tarsnap.com/scrypt/scrypt.pdf).
 package scrypt
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 
 	"code.google.com/p/go.crypto/pbkdf2"
 )
 
-const maxInt = 1<<31 - 1
+const maxInt = int(^uint(0) >> 1)
 
-// blockCopy copies n bytes from src into dst.
-func blockCopy(dst, src []byte, n int) {
+// blockCopy copies n numbers from src into dst.
+func blockCopy(dst, src []uint32, n int) {
 	copy(dst, src[:n])
 }
 
-// blockXOR XORs bytes from dst with n bytes from src.
-func blockXOR(dst, src []byte, n int) {
+// blockXOR XORs numbers from dst with n numbers from src.
+func blockXOR(dst, src []uint32, n int) {
 	for i, v := range src[:n] {
 		dst[i] ^= v
 	}
 }
 
-// salsa applies Salsa20/8 to the given array.
-func salsa(b *[64]byte) {
-	w0 := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
-	w1 := uint32(b[4]) | uint32(b[5])<<8 | uint32(b[6])<<16 | uint32(b[7])<<24
-	w2 := uint32(b[8]) | uint32(b[9])<<8 | uint32(b[10])<<16 | uint32(b[11])<<24
-	w3 := uint32(b[12]) | uint32(b[13])<<8 | uint32(b[14])<<16 | uint32(b[15])<<24
-	w4 := uint32(b[16]) | uint32(b[17])<<8 | uint32(b[18])<<16 | uint32(b[19])<<24
-	w5 := uint32(b[20]) | uint32(b[21])<<8 | uint32(b[22])<<16 | uint32(b[23])<<24
-	w6 := uint32(b[24]) | uint32(b[25])<<8 | uint32(b[26])<<16 | uint32(b[27])<<24
-	w7 := uint32(b[28]) | uint32(b[29])<<8 | uint32(b[30])<<16 | uint32(b[31])<<24
-	w8 := uint32(b[32]) | uint32(b[33])<<8 | uint32(b[34])<<16 | uint32(b[35])<<24
-	w9 := uint32(b[36]) | uint32(b[37])<<8 | uint32(b[38])<<16 | uint32(b[39])<<24
-	w10 := uint32(b[40]) | uint32(b[41])<<8 | uint32(b[42])<<16 | uint32(b[43])<<24
-	w11 := uint32(b[44]) | uint32(b[45])<<8 | uint32(b[46])<<16 | uint32(b[47])<<24
-	w12 := uint32(b[48]) | uint32(b[49])<<8 | uint32(b[50])<<16 | uint32(b[51])<<24
-	w13 := uint32(b[52]) | uint32(b[53])<<8 | uint32(b[54])<<16 | uint32(b[55])<<24
-	w14 := uint32(b[56]) | uint32(b[57])<<8 | uint32(b[58])<<16 | uint32(b[59])<<24
-	w15 := uint32(b[60]) | uint32(b[61])<<8 | uint32(b[62])<<16 | uint32(b[63])<<24
+// salsaXOR applies Salsa20/8 to the XOR of 16 numbers from tmp and in,
+// and puts the result into both both tmp and out.
+func salsaXOR(tmp *[16]uint32, in, out []uint32) {
+	w0 := tmp[0] ^ in[0]
+	w1 := tmp[1] ^ in[1]
+	w2 := tmp[2] ^ in[2]
+	w3 := tmp[3] ^ in[3]
+	w4 := tmp[4] ^ in[4]
+	w5 := tmp[5] ^ in[5]
+	w6 := tmp[6] ^ in[6]
+	w7 := tmp[7] ^ in[7]
+	w8 := tmp[8] ^ in[8]
+	w9 := tmp[9] ^ in[9]
+	w10 := tmp[10] ^ in[10]
+	w11 := tmp[11] ^ in[11]
+	w12 := tmp[12] ^ in[12]
+	w13 := tmp[13] ^ in[13]
+	w14 := tmp[14] ^ in[14]
+	w15 := tmp[15] ^ in[15]
 
 	x0, x1, x2, x3, x4, x5, x6, x7, x8 := w0, w1, w2, w3, w4, w5, w6, w7, w8
 	x9, x10, x11, x12, x13, x14, x15 := w9, w10, w11, w12, w13, w14, w15
@@ -143,74 +141,77 @@ func salsa(b *[64]byte) {
 	x14 += w14
 	x15 += w15
 
-	b[0], b[1], b[2], b[3] = byte(x0), byte(x0>>8), byte(x0>>16), byte(x0>>24)
-	b[4], b[5], b[6], b[7] = byte(x1), byte(x1>>8), byte(x1>>16), byte(x1>>24)
-	b[8], b[9], b[10], b[11] = byte(x2), byte(x2>>8), byte(x2>>16), byte(x2>>24)
-	b[12], b[13], b[14], b[15] = byte(x3), byte(x3>>8), byte(x3>>16), byte(x3>>24)
-	b[16], b[17], b[18], b[19] = byte(x4), byte(x4>>8), byte(x4>>16), byte(x4>>24)
-	b[20], b[21], b[22], b[23] = byte(x5), byte(x5>>8), byte(x5>>16), byte(x5>>24)
-	b[24], b[25], b[26], b[27] = byte(x6), byte(x6>>8), byte(x6>>16), byte(x6>>24)
-	b[28], b[29], b[30], b[31] = byte(x7), byte(x7>>8), byte(x7>>16), byte(x7>>24)
-	b[32], b[33], b[34], b[35] = byte(x8), byte(x8>>8), byte(x8>>16), byte(x8>>24)
-	b[36], b[37], b[38], b[39] = byte(x9), byte(x9>>8), byte(x9>>16), byte(x9>>24)
-	b[40], b[41], b[42], b[43] = byte(x10), byte(x10>>8), byte(x10>>16), byte(x10>>24)
-	b[44], b[45], b[46], b[47] = byte(x11), byte(x11>>8), byte(x11>>16), byte(x11>>24)
-	b[48], b[49], b[50], b[51] = byte(x12), byte(x12>>8), byte(x12>>16), byte(x12>>24)
-	b[52], b[53], b[54], b[55] = byte(x13), byte(x13>>8), byte(x13>>16), byte(x13>>24)
-	b[56], b[57], b[58], b[59] = byte(x14), byte(x14>>8), byte(x14>>16), byte(x14>>24)
-	b[60], b[61], b[62], b[63] = byte(x15), byte(x15>>8), byte(x15>>16), byte(x15>>24)
+	out[0], tmp[0] = x0, x0
+	out[1], tmp[1] = x1, x1
+	out[2], tmp[2] = x2, x2
+	out[3], tmp[3] = x3, x3
+	out[4], tmp[4] = x4, x4
+	out[5], tmp[5] = x5, x5
+	out[6], tmp[6] = x6, x6
+	out[7], tmp[7] = x7, x7
+	out[8], tmp[8] = x8, x8
+	out[9], tmp[9] = x9, x9
+	out[10], tmp[10] = x10, x10
+	out[11], tmp[11] = x11, x11
+	out[12], tmp[12] = x12, x12
+	out[13], tmp[13] = x13, x13
+	out[14], tmp[14] = x14, x14
+	out[15], tmp[15] = x15, x15
 }
 
-func blockMix(b, y []byte, r int) {
-	var x [64]byte
-	xs := x[:]
-
-	blockCopy(xs, b[(2*r-1)*64:], 64)
-
-	for i := 0; i < 2*r; i++ {
-		blockXOR(xs, b[i*64:], 64)
-		salsa(&x)
-
-		blockCopy(y[i*64:], xs, 64)
-	}
-
-	for i := 0; i < r; i++ {
-		blockCopy(b[i*64:], y[(i*2)*64:], 64)
-	}
-
-	for i := 0; i < r; i++ {
-		blockCopy(b[(i+r)*64:], y[(i*2+1)*64:], 64)
+func blockMix(tmp *[16]uint32, in, out []uint32, r int) {
+	blockCopy(tmp[:], in[(2*r-1)*16:], 16)
+	for i := 0; i < 2*r; i += 2 {
+		salsaXOR(tmp, in[i*16:], out[i*8:])
+		salsaXOR(tmp, in[i*16+16:], out[i*8+r*16:])
 	}
 }
 
-func integerify(b []byte, r int) uint64 {
-	return binary.LittleEndian.Uint64(b[(2*r-1)*64:])
+func integer(b []uint32, r int) uint64 {
+	j := (2*r - 1) * 16
+	return uint64(b[j]) | uint64(b[j+1])<<32
 }
 
-func smix(b []byte, r, N int, v, xy []byte) {
+func smix(b []byte, r, N int, v, xy []uint32) {
+	var tmp [16]uint32
 	x := xy
-	y := xy[128*r:]
+	y := xy[32*r:]
 
-	blockCopy(x, b, 128*r)
-
-	for i := 0; i < N; i++ {
-		blockCopy(v[i*(128*r):], x, 128*r)
-		blockMix(x, y, r)
+	j := 0
+	for i := 0; i < 32*r; i++ {
+		x[i] = uint32(b[j]) | uint32(b[j+1])<<8 | uint32(b[j+2])<<16 | uint32(b[j+3])<<24
+		j += 4
 	}
+	for i := 0; i < N; i += 2 {
+		blockCopy(v[i*(32*r):], x, 32*r)
+		blockMix(&tmp, x, y, r)
 
-	for i := 0; i < N; i++ {
-		j := int(integerify(x, r) & uint64(N-1))
-		blockXOR(x, v[j*(128*r):], 128*r)
-		blockMix(x, y, r)
+		blockCopy(v[(i+1)*(32*r):], y, 32*r)
+		blockMix(&tmp, y, x, r)
 	}
+	for i := 0; i < N; i += 2 {
+		j := int(integer(x, r) & uint64(N-1))
+		blockXOR(x, v[j*(32*r):], 32*r)
+		blockMix(&tmp, x, y, r)
 
-	blockCopy(b, x, 128*r)
+		j = int(integer(y, r) & uint64(N-1))
+		blockXOR(y, v[j*(32*r):], 32*r)
+		blockMix(&tmp, y, x, r)
+	}
+	j = 0
+	for _, v := range x[:32*r] {
+		b[j+0] = byte(v >> 0)
+		b[j+1] = byte(v >> 8)
+		b[j+2] = byte(v >> 16)
+		b[j+3] = byte(v >> 24)
+		j += 4
+	}
 }
 
-// Key derives a key from the password, salt and cost parameters, returning a
-// byte slice of length keyLen that can be used as cryptographic key.
-// 
-// N is a CPU/memory cost parameter, must be a power of two greater than 1.
+// Key derives a key from the password, salt, and cost parameters, returning
+// a byte slice of length keyLen that can be used as cryptographic key.
+//
+// N is a CPU/memory cost parameter, which must be a power of two greater than 1.
 // r and p must satisfy r * p < 2³⁰. If the parameters do not satisfy the
 // limits, the function returns a nil byte slice and an error.
 //
@@ -230,8 +231,8 @@ func Key(password, salt []byte, N, r, p, keyLen int) ([]byte, error) {
 		return nil, errors.New("scrypt: parameters are too large")
 	}
 
-	xy := make([]byte, 256*r)
-	v := make([]byte, 128*r*N)
+	xy := make([]uint32, 64*r)
+	v := make([]uint32, 32*N*r)
 	b := pbkdf2.Key(password, salt, 1, p*128*r, sha256.New)
 
 	for i := 0; i < p; i++ {
